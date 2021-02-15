@@ -92,9 +92,10 @@ __global__ void kernelVisibility(const float *Edges_f, const unsigned int N, con
 
     r = sqrt(dot(source.pos - pos,source.pos - pos));
     int ind = int(r/(v*d_t));
-    if (ind<T && ind>=0) 
+    if (ind<T && ind>=0) {
         r = (sign)? r : -r;
         atomicAdd(&IR[ind],2*pi/r);
+    }
 
     //i = blockIdx.x * blockDim.x + threadIdx.x;
     //if (i<T) IR[i]=r;
