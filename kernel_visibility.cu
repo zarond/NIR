@@ -1,9 +1,11 @@
 //nvcc -ptx "E:\семестр 7\НИР\kernel_visibility.cu" -ccbin "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Tools\MSVC\14.16.27023\bin\Hostx64\x64"
-//nvcc -ptx "E:\семестр 7\НИР\kernel_visibility.cu" -ccbin "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Tools\MSVC\14.16.27023\bin\Hostx64\x64" -gencode arch=compute_35,code=sm_35 -rdc=true
+//nvcc -ptx "E:\семестр 7\НИР\kernel_visibility.cu" -ccbin "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Tools\MSVC\14.16.27023\bin\Hostx64\x64" -gencode arch=compute_52,code=sm_52 -rdc=true
+//nvcc -ptx "D:\семестр 7\НИР\kernel_visibility.cu" -ccbin "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.28.29333\bin\Hostx64\x64" -gencode arch=compute_52,code=sm_52 -rdc=true
+
 #include "inc\helper_math.h"
         
-#define eps 0.000001
-#define pi 3.141592654
+#define eps 0.000001f
+#define pi 3.141592654f
         
 inline __device__ float cross(float2 a, float2 b){return a.x*b.y-a.y*b.x;}
 inline __device__ float2 xy(float4 a) {return make_float2(a.x,a.y);}
@@ -30,7 +32,7 @@ __device__ float2 IntersectRayEdge(float2 ro, float2 direction,float4 edge){
 
     float dotv = dot(edgedir,v3);
     if (dot(normal(edgedir),SourceDirection) < eps || abs(dotv) < eps) // обратная сторона
-        return make_float2(0.0,0.0); // возвращает неверную ориентацию
+        return make_float2(0.0f,0.0f); // возвращает неверную ориентацию
 
     float t1 = cross(edgedir,SourceDirection) / dotv;
     float t2 = dot(SourceDirection,v3) / dotv;
@@ -41,18 +43,18 @@ __device__ float2 IntersectRayEdge(float2 ro, float2 direction,float4 edge){
 
 inline __device__ bool ComputeVisibility(float4 * Edges, const unsigned int N, float2 pos, float2 direction, const ISource source, float &r){
     int chosenEdgeid;
-    float minR=1.0e+37;
+    float minR=1.0e+37f;
 
     float2 twindow = IntersectRayEdge(pos, direction,source.window);
-    if (!(twindow.x > 0.0 && (twindow.y >= 0.0 && twindow.y <= 1.0)) && source.reflections != 0){ // не пересекается с окном источника
-        r=-1;
+    if (!(twindow.x > 0.0f && (twindow.y >= 0.0f && twindow.y <= 1.0f)) && source.reflections != 0){ // не пересекается с окном источника
+        r=-1.0f;
         return false;
     }
     
     for (int i=0;i<N;++i){
         float4 edge = Edges[i];
         float2 t = IntersectRayEdge(pos, direction, edge);
-        if (t.x > 0.0 && (t.y >= 0.0 && t.y <= 1.0) && (t.x<=minR))
+        if (t.x > 0.0f && (t.y >= 0.0f && t.y <= 1.0f) && (t.x<=minR))
         {
             chosenEdgeid = i;
             minR=t.x;
@@ -63,11 +65,11 @@ inline __device__ bool ComputeVisibility(float4 * Edges, const unsigned int N, f
         r = tmp;
         return true;
     }
-    if (minR<1.0e+35 && chosenEdgeid == source.edgeid){
+    if (minR<1.0e+35f && chosenEdgeid == source.edgeid){
         r = minR;
         return true;
     }
-    r=-1.0;
+    r=-1.0f;
     return false;
 }        
  
@@ -82,7 +84,7 @@ __global__ void kernelVisibility(const float *Edges_f, const unsigned int N, con
     float2 pos = make_float2(x_ir,y_ir);
     float2 direction = normalize(source.pos - pos);
 
-    float r=-1;
+    float r=-1.0f;
     bool sign = (source.reflections % 2 == 0);
 
     bool hitsource = ComputeVisibility(Edges, N, pos, direction, source,r);
@@ -92,9 +94,10 @@ __global__ void kernelVisibility(const float *Edges_f, const unsigned int N, con
 
     r = sqrt(dot(source.pos - pos,source.pos - pos));
     int ind = int(r/(v*d_t));
-    if (ind<T && ind>=0) {
+    if (ind<T && ind>=0){ 
         r = (sign)? r : -r;
         atomicAdd(&IR[ind],2*pi/r);
+        //atomicAdd(&IR[ind],1);
     }
 
     //i = blockIdx.x * blockDim.x + threadIdx.x;

@@ -1,12 +1,14 @@
 //nvcc -ptx "E:\семестр 7\НИР\kernel_IS.cu" -ccbin "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Tools\MSVC\14.16.27023\bin\Hostx64\x64"
-//nvcc -ptx "E:\семестр 7\НИР\kernel_IS.cu" -ccbin "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Tools\MSVC\14.16.27023\bin\Hostx64\x64" -gencode arch=compute_35,code=sm_35 -rdc=true
+//nvcc -ptx "E:\семестр 7\НИР\kernel_IS.cu" -ccbin "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Tools\MSVC\14.16.27023\bin\Hostx64\x64" -gencode arch=compute_52,code=sm_52 -rdc=true
+//nvcc -ptx "D:\семестр 7\НИР\kernel_IS.cu" -ccbin "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.28.29333\bin\Hostx64\x64" -gencode arch=compute_52,code=sm_52 -rdc=true
+
 #include "inc\helper_math.h"
 #include "inc\helper_math.h"
 #include "mex.h"
 #include "gpu/mxGPUArray.h"
         
-#define eps 0.000001
-#define pi 3.141592654
+#define eps 0.000001f
+#define pi 3.141592654f
 #define MAXCUTS 16
         
 inline __device__ float2 xy(float4 a) {return make_float2(a.x,a.y);}
@@ -19,7 +21,7 @@ inline __device__ float cross(float2 a, float2 b){return a.x*b.y-a.y*b.x;}
 inline __device__ float2 normal(float2 a){return make_float2(-a.y,a.x);}
 inline __device__ float2 reflect(float2 a, float4 b){
     float2 n = normalize(zw(b)-xy(b));
-    return xy(b)+(-a+xy(b))-2*dot(n,(-a+xy(b)))*n;
+    return xy(b)+(-a+xy(b))-2.0f*dot(n,(-a+xy(b)))*n;
 }
 
 struct ISource{
@@ -42,12 +44,12 @@ __device__ float2 IntersectRayEdge(float2 ro, float2 direction,float4 edge){
 
     float dotv = dot(edgedir,v3);
     if (dot(normal(edgedir),SourceDirection) < eps || abs(dotv) < eps) // обратная сторона
-        return make_float2(0.0,0.0); // возвращает неверную ориентацию
+        return make_float2(0.0f,0.0f); // возвращает неверную ориентацию
 
     float t1 = cross(edgedir,SourceDirection) / dotv;
     float t2 = dot(SourceDirection,v3) / dotv;
 
-    //if (t1 >= 0.0 && (t2 >= 0.0 && t2 <= 1.0) && (t1<=minR)){}
+    //if (t1 >= 0.0f && (t2 >= 0.0f && t2 <= 1.0ff) && (t1<=minR)){}
     return make_float2(t1,t2);
 }
 
@@ -59,7 +61,7 @@ __device__ float4 CutEdgeWithBeam(float2 ro, float4 window, float4 edge, int sou
     float2 t_2 = IntersectRayEdge(/*pos*/zw(window), zw(window) - ro, edge);
     
     bool notseen =         
-    !(t_1.x >= 0.0 && t_1.y >= 0.0 && t_1.y <= 1.0) && !(t_2.x >= 0.0 && t_2.y >= 0.0 && t_2.y <= 1.0) //ни одна, ни вторая не пересекают
+    !(t_1.x >= 0.0f && t_1.y >= 0.0f && t_1.y <= 1.0f) && !(t_2.x >= 0.0f && t_2.y >= 0.0f && t_2.y <= 1.0f) //ни одна, ни вторая не пересекают
     && !((t_2.y <= 0 && t_2.x >= 0 && (t_1.x >= 0 && t_1.y >= 1 || t_1.x <= 0 || t_1.x >= 0 && t_1.y <= t_2.y )) // и не один из этих случаев
     || (t_1.y >= 1 && t_1.x >= 0 && ( t_2.x <= 0 || t_2.x >= 0 && t_2.y >= t_1.y )) 
     || (t_1.x<=0 && t_2.x<=0 && t_2.y >= t_1.y))
@@ -67,7 +69,7 @@ __device__ float4 CutEdgeWithBeam(float2 ro, float4 window, float4 edge, int sou
 
     CanBeSeen = CanBeSeen || !notseen;
     if (CanBeSeen==false) {
-        return make_float4(0.0); // возврат, что не пересекается вообще //test
+        return make_float4(0.0f); // возврат, что не пересекается вообще //test
     }
 
     float4 newwindow = edge;
@@ -88,11 +90,11 @@ __device__ void CutBeamWithEdge(float2 ro, float4 window, float4 farwindow, floa
     // записываем в cuts проекцию на farwindow (в процентах)
     float2 t1 = IntersectRayEdge(ro, zw(edge)-ro, farwindow);
     float2 t2 = IntersectRayEdge(ro, xy(edge)-ro, farwindow);
-    //if (t1.x>0){ t1.y = max(t1.y,0.0); t1.y = min(t1.y,1.0);}
-    if (t1.x>0){ t1.y = max(t1.y,0.0); t1.y = min(t1.y,1.0);}
+    //if (t1.x>0){ t1.y = max(t1.y,0.0f); t1.y = min(t1.y,1.0f);}
+    if (t1.x>0){ t1.y = max(t1.y,0.0f); t1.y = min(t1.y,1.0f);}
     else if (t1.x<0) {return;t1.y = 1;}
-    if (t2.x>0){ t2.y = max(t2.y,0.0); t2.y = min(t2.y,1.0);}
-    //if (t2.x>0){ t2.y = max(t2.y,0.0); t2.y = min(t2.y,1.0);}
+    if (t2.x>0){ t2.y = max(t2.y,0.0f); t2.y = min(t2.y,1.0f);}
+    //if (t2.x>0){ t2.y = max(t2.y,0.0f); t2.y = min(t2.y,1.0f);}
     else if (t2.x<0) {return;t2.y = 0;}
 
     if (t1.y - t2.y >= eps && t1.x!=0 && t2.x!=0) // не равны друг другу (можно было и t1.y != t2.y)
@@ -140,7 +142,7 @@ __global__ void ComputeNewIS(const float4* Edges,/*ISource* Sources,*/ const uns
     float4 newwindow = CutEdgeWithBeam(source.pos, source.window, edge, sourceid);
     shared[edgeid]=newwindow;
     __syncthreads();
-    if (newwindow==0.0) {
+    if (newwindow==0.0f) {
         return; // возврат, что не пересекается вообще
     }
     //----------------------------------------------------------
@@ -152,11 +154,11 @@ __global__ void ComputeNewIS(const float4* Edges,/*ISource* Sources,*/ const uns
         if (i==edgeid || i==source.edgeid) continue; // чтобы edge и window сами себя не отсекали ..? надо улучшить 
         CutBeamWithEdge(source.pos, source.window, newwindow, shared[i], cuts, numberOfCuts);
     }
-    //numberOfCuts = 2; cuts[1]=make_float2(0.0,0.6);cuts[0]=make_float2(0.5,0.7);
+    //numberOfCuts = 2; cuts[1]=make_float2(0.0f,0.6);cuts[0]=make_float2(0.5,0.7);
 
     // отсортируем по cuts.x
     sortCuts(cuts,numberOfCuts);
-    float2 lr=make_float2(0.0,0.0); // границы
+    float2 lr=make_float2(0.0f,0.0f); // границы
         
     float* cutsSingle = (float*) cuts;
     int2 indexes = make_int2(0); 
@@ -186,7 +188,7 @@ void kernelIS(const float4 * Edges, ISource* d_Sources, const unsigned int N, co
     Sources = d_Sources;
     /*unsigned int */NumberOfSources = 1;
     unsigned int CurrentSource = 0;
-    Sources[0]={make_float2(x_s,y_s),0.0,make_float4(0.0),-1,-1,0,0};
+    Sources[0]={make_float2(x_s,y_s),0.0f,make_float4(0.0f),-1,-1,0,0};
     
     for (;NumberOfSources<MaxSources;){
     	dim3 blockDim(N, 1, 1); // при условии что N<1024
